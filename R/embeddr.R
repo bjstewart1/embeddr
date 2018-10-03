@@ -47,7 +47,7 @@ embeddr <- function(sce, genes_for_embedding = NULL, kernel = c("nn", "dist", "h
         genes_for_embedding <- 1:dim(sce)[1]
     W <- weighted_graph(exprs(sce[genes_for_embedding, ]), kernel = kernel, metric = metric, nn = nn, eps = eps, 
         t = t, symmetrize = symmetrize)
-    assay(sce, "cellDist") <- W
+    reducedDim(sce, "cellDist") <- W
     #cellDist(sce) <- W
     
     LE <- laplacian_eigenmap(W, measure_type = measure_type, p = p)
@@ -561,7 +561,7 @@ plot_graph <- function(sce) {
     
     df <- dplyr::rename(as.data.frame(redDim(sce)), x = component_1, y = component_2)
     # select(pData(sce), x = component_1, y = component_2)
-    W <- assay(sce, "cellDist")
+    W <- reducedDim(sce, "cellDist") 
     
     diag(W) <- 0
     locs <- which((1 * lower.tri(W) * W) > 0, arr.ind = TRUE)
