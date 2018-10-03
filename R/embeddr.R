@@ -366,14 +366,14 @@ plot_embedding <- function(sce, color_by = "cluster", plot_genes = NULL, use_sho
         stop("Please call embeddr on SCE first")
     
     ## are we colouring by a factor?
-    if (color_by %in% names(pData(sce))) {
+    if (color_by %in% names(colData(sce))) {
         col <- match(color_by, names(colData(sce)))
         M <- cbind(M, dplyr::select(colData(sce), col))
     }
     
     ## are we plotting pseudotime?
     if (("pseudotime" %in% names(colData(sce))) && plot_pseudotime) {
-        M <- cbind(M, select(pData(sce), pseudotime, trajectory_1, trajectory_2))
+        M <- cbind(M, select(colData(sce), pseudotime, trajectory_1, trajectory_2))
     }
     
     ## are we sizing by gene expression?
@@ -392,7 +392,7 @@ plot_embedding <- function(sce, color_by = "cluster", plot_genes = NULL, use_sho
             M$gene <- mapvalues(M$gene, from = featureNames(sce), to = fData(sce)$gene_short_name)
     }
     
-    if (("pseudotime" %in% names(pData(sce))) && plot_pseudotime) 
+    if (("pseudotime" %in% names(colData(sce))) && plot_pseudotime) 
         M <- arrange(M, pseudotime)
     
     
@@ -421,7 +421,7 @@ plot_embedding <- function(sce, color_by = "cluster", plot_genes = NULL, use_sho
         
     } else {
         # not colouring by something
-        warning(paste("color_by string", color_by, "not found in pData(SCESet)"))
+        warning(paste("color_by string", color_by, "not found in colData(SCESet)"))
         if (is.null(plot_genes)) {
             plt <- plt + geom_point(aes_string(x = "component_1", y = "component_2"), alpha = 0.65, size = 3.5)
         } else {
@@ -532,7 +532,7 @@ reverse_pseudotime <- function(sce) {
     return(sce)
 }
 
-# plot_heatmap <- function(sce, ...) { xp <- exprs(sce)[,order(pData(sce)$pseudotime)] heatmap.2(xp,
+# plot_heatmap <- function(sce, ...) { xp <- exprs(sce)[,order(colData(sce)$pseudotime)] heatmap.2(xp,
 # dendrogram='none', Colv=FALSE, col=redblue(256), trace='none', density.info='none', scale='row', ...)  }
 
 #' Plot the nearest neighbour graph in the embedding
@@ -561,7 +561,7 @@ plot_graph <- function(sce) {
     x <- y <- NULL
     
     df <- dplyr::rename(as.data.frame(reducedDim(sce, "embedding") ), x = component_1, y = component_2)
-    # select(pData(sce), x = component_1, y = component_2)
+    # select(colData(sce), x = component_1, y = component_2)
     W <- reducedDim(sce, "cellDist") 
     
     diag(W) <- 0
@@ -921,15 +921,15 @@ plot_pseudotime_density <- function(sce, color_by = NULL, reverse = FALSE) {
     if (reverse) 
         sce <- reverse_pseudotime(sce)
     
-    if (!("pseudotime" %in% names(pData(sce)))) 
+    if (!("pseudotime" %in% names(colData(sce)))) 
         stop("Fit pseudotime before calling plot_pseudotime_density")
     
-    plt <- ggplot(pData(sce))
+    plt <- ggplot(colData(sce))
     if (!is.null(color_by)) {
         if (color_by %in% names(colData(sce))) {
             plt <- plt + geom_density(aes_string(x = "pseudotime", fill = color_by), alpha = 0.6)
         } else {
-            warning(paste("Variable", color_by, "not found in names(pData(sce))"))
+            warning(paste("Variable", color_by, "not found in names(colData(sce))"))
             plt <- plt + geom_density(aes_string(x = "pseudotime"), alpha = 0.6)
         }
     } else {
@@ -974,7 +974,7 @@ plot_pseudotime_metrics <- function(sce, ...) {
 #' @param window_size The size of the sliding window. By default taken to be half the number of cells
 #'
 #' @export
-#' @importFrom Biobase pData
+#' @importFrom Biobase colData
 #' @return An object of class `data.frame` where each column is a metric (window-averaged pseudotime,
 #' mean, variance, CV2, signal to noise ratio)
 #' @examples
@@ -1009,7 +1009,7 @@ calculate_metrics <- function(sce, gene, window_size = NULL) {
 
 #' Retrieve the pseudotime assignment from sce
 #'
-#' Equivalent to \code{pData(sce)$pseudotime}
+#' Equivalent to \code{colData(sce)$pseudotime}
 #'
 #' @param sce An object of class \code{SCESet}
 #' @export
@@ -1024,7 +1024,7 @@ calculate_metrics <- function(sce, gene, window_size = NULL) {
 pseudotime <- function(sce) {
     if (class(sce) != "SCESet") 
         stop("sce must be of class SCESet")
-    return(pData(sce)$pseudotime)
+    return(colData(sce)$pseudotime)
 }
 
 # #' Log the expression of a given SCESet #' #' @param sce An object of class SCESet #' @param base The base
