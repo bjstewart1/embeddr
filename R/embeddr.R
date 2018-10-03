@@ -47,13 +47,13 @@ embeddr <- function(sce, genes_for_embedding = NULL, kernel = c("nn", "dist", "h
         genes_for_embedding <- 1:dim(sce)[1]
     W <- weighted_graph(exprs(sce[genes_for_embedding, ]), kernel = kernel, metric = metric, nn = nn, eps = eps, 
         t = t, symmetrize = symmetrize)
-    
-    cellDist(sce) <- W
+    assay(sce, "cellDist") <- W
+    #cellDist(sce) <- W
     
     LE <- laplacian_eigenmap(W, measure_type = measure_type, p = p)
     
-    redDim(sce) <- as.matrix(LE$embedding)
-    pData(sce)$connected_component <- LE$connected_component
+    assay(sce, "redDim") <- as.matrix(LE$embedding)
+    colData(sce)$connected_component <- LE$connected_component
     
     validObject(sce)
     return(sce)
@@ -258,10 +258,10 @@ cluster_embedding <- function(sce, method = c("mm", "kmeans"), k = NULL) {
     method <- match.arg(method)
     if (method == "kmeans") {
         km <- kmeans(M_xy, k)
-        phenoData(sce)$cluster <- km$cluster
+        colData(sce)$cluster <- km$cluster
     } else if (method == "mm") {
         mc <- Mclust(M_xy, G = k)
-        phenoData(sce)$cluster <- as.factor(mc$classification)
+        colData(sce)$cluster <- as.factor(mc$classification)
     }
     return(sce)
 }
@@ -300,7 +300,7 @@ fit_pseudotime <- function(sce, clusters = NULL, ...) {
     
     cells_in_cluster <- rep(TRUE, n_cells)
     if (!is.null(clusters)) 
-        cells_in_cluster <- pData(sce)$cluster %in% clusters
+        cells_in_cluster <- colData(sce)$cluster %in% clusters
     
     Mcl <- M[cells_in_cluster, ]
     X <- as.matrix(select(Mcl, component_1, component_2))
@@ -319,10 +319,10 @@ fit_pseudotime <- function(sce, clusters = NULL, ...) {
     trajectory_2[cells_in_cluster] <- pc$s[, 2]
     proj_dist[cells_in_cluster] <- d
     
-    phenoData(sce)$pseudotime <- pseudotime
-    phenoData(sce)$trajectory_1 <- trajectory_1
-    phenoData(sce)$trajectory_2 <- trajectory_2
-    phenoData(sce)$proj_dist <- proj_dist
+   colData(sce)$pseudotime <- pseudotime
+    colData(sce)$trajectory_1 <- trajectory_1
+    colData(sce)$trajectory_2 <- trajectory_2
+    colData(sce)$proj_dist <- proj_dist
     return(sce)
 }
 
@@ -359,19 +359,19 @@ plot_embedding <- function(sce, color_by = "cluster", plot_genes = NULL, use_sho
     trajectory_1 <- trajectory_2 <- NULL
     plot_names <- NULL
     
-    M <- as.data.frame(redDim(sce))  # dplyr::select(pData(sce), component_1, component_2)
+    M <- as.data.frame(redDim(sce))  # dplyr::select(colData(sce), component_1, component_2)
     
     if (ncol(M) < 2) 
-        stop("Please call embeddr on SCESet first")
+        stop("Please call embeddr on SCE first")
     
     ## are we colouring by a factor?
     if (color_by %in% names(pData(sce))) {
-        col <- match(color_by, names(pData(sce)))
-        M <- cbind(M, dplyr::select(pData(sce), col))
+        col <- match(color_by, names(colData(sce)))
+        M <- cbind(M, dplyr::select(colData(sce), col))
     }
     
     ## are we plotting pseudotime?
-    if (("pseudotime" %in% names(pData(sce))) && plot_pseudotime) {
+    if (("pseudotime" %in% names(colData(sce))) && plot_pseudotime) {
         M <- cbind(M, select(pData(sce), pseudotime, trajectory_1, trajectory_2))
     }
     
@@ -380,7 +380,7 @@ plot_embedding <- function(sce, color_by = "cluster", plot_genes = NULL, use_sho
         if (is.character(plot_genes)) {
             plot_names <- plot_genes
         } else {
-            plot_names <- featureNames(sce)[plot_genes]
+            plot_names <- rownames(sce)[plot_genes]
         }
         y <- exprs(sce[plot_genes, ])
         y <- t(y)
@@ -412,7 +412,7 @@ plot_embedding <- function(sce, color_by = "cluster", plot_genes = NULL, use_sho
                 color = "gray20", alpha = 0.65, shape = 21)
         }
         
-        if (is.numeric(pData(sce)[[color_by]]) && all(pData(sce)[[color_by]]%%1 != 0)) {
+        if (is.numeric(colData(sce)[[color_by]]) && all(colData(sce)[[color_by]]%%1 != 0)) {
             plt <- plt + scale_fill_continuous(name = color_by)
         } else {
             plt <- plt + scale_fill_discrete(name = color_by)
@@ -482,13 +482,13 @@ plot_in_pseudotime <- function(sce, nrow = NULL, ncol = NULL,
                               y_lab = "Expression") {
     xp <- data.frame(t(exprs(sce)), check.names = FALSE)  # now cell-by-gene
     if (use_short_names) 
-        names(xp) <- fData(sce)$gene_short_name
+        names(xp) <- rowData(sce)$Symbol
     
-    xp$pseudotime <- pData(sce)$pseudotime
+    xp$pseudotime <- colData(sce)$pseudotime
     
-    cn <- !is.null(color_by) && color_by %in% names(pData(sce))
+    cn <- !is.null(color_by) && color_by %in% names(colData(sce))
     if (cn) {
-        xp <- cbind(xp, dplyr::select(pData(sce), contains(color_by)))
+        xp <- cbind(xp, dplyr::select(colData(sce), contains(color_by)))
         names(xp)[ncol(xp)] <- color_by
     }
     
@@ -527,7 +527,7 @@ plot_in_pseudotime <- function(sce, nrow = NULL, ncol = NULL,
 #' sce <- reverse_pseudotime(sce)
 reverse_pseudotime <- function(sce) {
     reverse <- function(x) -x + max(x) + min(x)
-    phenoData(sce)$pseudotime <- reverse(pData(sce)$pseudotime)
+    colData(sce)$pseudotime <- reverse(colData(sce)$pseudotime)
     return(sce)
 }
 
@@ -561,7 +561,7 @@ plot_graph <- function(sce) {
     
     df <- dplyr::rename(as.data.frame(redDim(sce)), x = component_1, y = component_2)
     # select(pData(sce), x = component_1, y = component_2)
-    W <- cellDist(sce)
+    W <- assay(sce, "cellDist")
     
     diag(W) <- 0
     locs <- which((1 * lower.tri(W) * W) > 0, arr.ind = TRUE)
@@ -610,7 +610,7 @@ plot_graph <- function(sce) {
 #' sce <- fit_pseudotime(sce)
 #' model <- fit_pseudotime_model(sce, 1) # fit for first gene
 fit_pseudotime_model <- function(sce, gene, ...) {
-    t <- pData(sce)$pseudotime
+    t <- colData(sce)$pseudotime
     if(is.null(t)) stop("Please fit pseudotime first")
     
     y <- as.vector(exprs(sce[gene, ]))
@@ -684,9 +684,9 @@ plot_pseudotime_model <- function(sce, models = NULL, n_cores = 2,
     
     gene_names <- NULL
     if ("gene_short_name" %in% names(fData(sce))) {
-        gene_names <- fData(sce)$gene_short_name
+        gene_names <- rowData(sce)$Symbol
     } else {
-        gene_names <- featureNames(sce)
+        gene_names <- rownames(sce)
     }
     
     min_expr <- sce@lowerDetectionLimit
@@ -696,9 +696,9 @@ plot_pseudotime_model <- function(sce, models = NULL, n_cores = 2,
     y$pseudotime <- pseudotime(sce)
     id_vars <- "pseudotime"
     
-    cn <- !is.null(color_by) && color_by %in% names(pData(sce))
+    cn <- !is.null(color_by) && color_by %in% names(colData(sce))
     if(cn) {
-      y <- cbind(y, dplyr::select(pData(sce), contains(color_by)))
+      y <- cbind(y, dplyr::select(colData(sce), contains(color_by)))
       names(y)[ncol(y)] <- color_by
       id_vars <- c(id_vars, color_by)
     }
@@ -811,7 +811,7 @@ gene_pseudotime_test <- function(sce, gene, full_model = NULL) {
 pseudotime_test <- function(sce, n_cores = 2) {
     p_vals <- NULL
     if (n_cores == 1) {
-        p_vals <- sapply(featureNames(sce), function(gene_name) gene_pseudotime_test(sce, gene_name))
+        p_vals <- sapply(rownames(sce), function(gene_name) gene_pseudotime_test(sce, gene_name))
     } else {
         p_vals <- unlist(mclapply(featureNames(sce), function(gene_name) gene_pseudotime_test(sce, gene_name)))
     }
@@ -884,7 +884,7 @@ predicted_expression <- function(sce, models = NULL, n_cores = 2) {
     } else {
         ## want to calculate models one-at-a-time to make sure they don't take up too much space in memory
         names_not_null <- NULL
-        predict_list <- lapply(featureNames(sce), function(gene_name) {
+        predict_list <- lapply(rownames(sce), function(gene_name) {
             fit <- fit_pseudotime_model(sce, gene_name)
             if (is.null(fit)) {
                 warning(paste("Fit", gene_name, "returned null"))
@@ -925,7 +925,7 @@ plot_pseudotime_density <- function(sce, color_by = NULL, reverse = FALSE) {
     
     plt <- ggplot(pData(sce))
     if (!is.null(color_by)) {
-        if (color_by %in% names(pData(sce))) {
+        if (color_by %in% names(colData(sce))) {
             plt <- plt + geom_density(aes_string(x = "pseudotime", fill = color_by), alpha = 0.6)
         } else {
             warning(paste("Variable", color_by, "not found in names(pData(sce))"))
