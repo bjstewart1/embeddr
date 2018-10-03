@@ -52,7 +52,8 @@ embeddr <- function(sce, genes_for_embedding = NULL, kernel = c("nn", "dist", "h
     
     LE <- laplacian_eigenmap(W, measure_type = measure_type, p = p)
     
-    assay(sce, "redDim") <- as.matrix(LE$embedding)
+    #assay(sce, "redDim") <- as.matrix(LE$embedding)
+    reducedDim(sce, "embedding") <- as.matrix(LE$embedding)
     colData(sce)$connected_component <- LE$connected_component
     
     validObject(sce)
@@ -254,7 +255,7 @@ remove_pseudotime <- function(sce) {
 #' sce <- embeddr(sce)
 #' sce <- cluster_embedding(sce)
 cluster_embedding <- function(sce, method = c("mm", "kmeans"), k = NULL) {
-    M_xy <- redDim(sce)
+    M_xy <- reducedDim(sce, "embedding") 
     method <- match.arg(method)
     if (method == "kmeans") {
         km <- kmeans(M_xy, k)
@@ -295,7 +296,7 @@ cluster_embedding <- function(sce, method = c("mm", "kmeans"), k = NULL) {
 #' sce <- fit_pseudotime(sce)
 fit_pseudotime <- function(sce, clusters = NULL, ...) {
     component_1 <- component_2 <- NULL  # satisfy R CMD check
-    M <- as.data.frame(redDim(sce))  # select(pData(sce), component_1, component_2)
+    M <- as.data.frame(reducedDim(sce, "embedding") )  # select(pData(sce), component_1, component_2)
     n_cells <- dim(sce)[2]
     
     cells_in_cluster <- rep(TRUE, n_cells)
@@ -359,7 +360,7 @@ plot_embedding <- function(sce, color_by = "cluster", plot_genes = NULL, use_sho
     trajectory_1 <- trajectory_2 <- NULL
     plot_names <- NULL
     
-    M <- as.data.frame(redDim(sce))  # dplyr::select(colData(sce), component_1, component_2)
+    M <- as.data.frame(reducedDim(sce, "embedding") )  # dplyr::select(colData(sce), component_1, component_2)
     
     if (ncol(M) < 2) 
         stop("Please call embeddr on SCE first")
@@ -559,7 +560,7 @@ plot_graph <- function(sce) {
     component_1 <- component_2 <- NULL
     x <- y <- NULL
     
-    df <- dplyr::rename(as.data.frame(redDim(sce)), x = component_1, y = component_2)
+    df <- dplyr::rename(as.data.frame(reducedDim(sce, "embedding") ), x = component_1, y = component_2)
     # select(pData(sce), x = component_1, y = component_2)
     W <- reducedDim(sce, "cellDist") 
     
